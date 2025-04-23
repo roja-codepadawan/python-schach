@@ -53,6 +53,49 @@ def get_square_from_mouse(pos):
     row = 7 - (y // SQ_SIZE)
     return chess.square(col, row)
 
+# === Koordinaten zeichnen ===
+def zeichne_brett(screen):
+    colors = [WHITE, BROWN]
+    for r in range(8):
+        for c in range(8):
+            farbe = colors[(r + c) % 2]
+            pygame.draw.rect(screen, farbe, pygame.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+    # Koordinaten zeichnen
+    font = pygame.font.SysFont("Arial", 14)
+    for i in range(8):
+        # Buchstaben (a–h) oben und unten
+        buchstabe = font.render(chr(ord('a') + i), True, (0, 0, 0))
+        screen.blit(buchstabe, (i * SQ_SIZE + 5, HEIGHT - 15))  # unten
+      #   screen.blit(buchstabe, (i * SQ_SIZE + 5, 2))             # oben (optional)
+
+        # Zahlen (1–8) links und rechts
+        zahl = font.render(str(8 - i), True, (0, 0, 0))
+        screen.blit(zahl, (2, i * SQ_SIZE + 5))                  # links
+      #   screen.blit(zahl, (WIDTH - 15, i * SQ_SIZE + 5))         # rechts (optional)
+
+# === Mögliche Züge ===
+def markiere_zuege(screen, board, selected_square):
+    if selected_square is None:
+        return
+
+    for zug in board.legal_moves:
+        if zug.from_square == selected_square:
+            to_square = zug.to_square
+            col = chess.square_file(to_square)
+            row = 7 - chess.square_rank(to_square)
+
+            ziel_feld = pygame.Rect(col * SQ_SIZE, row * SQ_SIZE, SQ_SIZE, SQ_SIZE)
+
+            if board.piece_at(to_square):
+                # 🔴 Schlagzug (gegnerische Figur steht da)
+                pygame.draw.rect(screen, (255, 0, 0, 100), ziel_feld, 5)  # rot, Rahmen
+            else:
+                # 🟩 Normaler Zug
+                center = (col * SQ_SIZE + SQ_SIZE // 2, row * SQ_SIZE + SQ_SIZE // 2)
+                pygame.draw.circle(screen, (0, 255, 0), center, 10)  # grün
+
+
 # === Hauptfunktion ===
 def main():
     lade_figuren()
@@ -87,6 +130,7 @@ def main():
 
         zeichne_brett(screen)
         zeichne_figuren(screen, board)
+        markiere_zuege(screen, board, selected_square)
         pygame.display.flip()
 
     pygame.quit()
