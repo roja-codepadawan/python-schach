@@ -1,95 +1,95 @@
+import pygame
 import chess
+import os
+from minimax import minimax, bewertung  # Externe Datei mit Minimax & Bewertungsfunktion
 
-def bewertung(board):
-    """Einfaches Bewertungssystem basierend auf Material."""
-    werte = {
-        chess.PAWN: 1,
-        chess.KNIGHT: 3,
-        chess.BISHOP: 3,
-        chess.ROOK: 5,
-        chess.QUEEN: 9,
-        chess.KING: 0  # König bewerten wir nicht (ist eh nicht schlagbar)
-    }
+# === Einstellungen ===
+WIDTH, HEIGHT = 480, 480
+SQ_SIZE = WIDTH // 8
+FPS = 15
 
-    score = 0
-    for figurentyp in werte:
-        score += len(board.pieces(figurentyp, chess.WHITE)) * werte[figurentyp]
-        score -= len(board.pieces(figurentyp, chess.BLACK)) * werte[figurentyp]
-    return score
+# === Farben ===
+WHITE = (240, 217, 181)
+BROWN = (181, 136, 99)
 
-def minimax(board, tiefe, alpha, beta, maximierend):
-    if tiefe == 0 or board.is_game_over():
-        return bewertung(board), None
+# === Initialisierung ===
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Schach mit KI")
+clock = pygame.time.Clock()
 
-    bester_zug = None
+# === Figuren laden ===
+IMAGES = {}
+def lade_figuren():
+    figuren = ['P', 'R', 'N', 'B', 'Q', 'K']
+    for farbe in ['w', 'b']:
+        for figur in figuren:
+            name = farbe + figur
+            path = os.path.join("assets", f"{name}.png")
+            IMAGES[name] = pygame.transform.scale(pygame.image.load(path), (SQ_SIZE, SQ_SIZE))
 
-    if maximierend:
-        max_eval = float('-inf')
-        for zug in board.legal_moves:
-            board.push(zug)
-            eval, _ = minimax(board, tiefe - 1, alpha, beta, False)
-            board.pop()
-            if eval > max_eval:
-                max_eval = eval
-                bester_zug = zug
-            alpha = max(alpha, eval)
-            if beta <= alpha:
-                break
-        return max_eval, bester_zug
-    else:
-        min_eval = float('inf')
-        for zug in board.legal_moves:
-            board.push(zug)
-            eval, _ = minimax(board, tiefe - 1, alpha, beta, True)
-            board.pop()
-            if eval < min_eval:
-                min_eval = eval
-                bester_zug = zug
-            beta = min(beta, eval)
-            if beta <= alpha:
-                break
-        return min_eval, bester_zug
+# === Schachbrett zeichnen ===
+def zeichne_brett(screen):
+    colors = [WHITE, BROWN]
+    for r in range(8):
+        for c in range(8):
+            farbe = colors[(r + c) % 2]
+            pygame.draw.rect(screen, farbe, pygame.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-def brett_anzeigen(board):
-    """Zeigt das Schachbrett mit Koordinaten an."""
-    brett_string = str(board)
-    zeilen = brett_string.split("\n")
-    print("  a b c d e f g h")
-    for i, zeile in enumerate(zeilen):
-        print(f"{8 - i} {zeile} {8 - i}")
-    print("  a b c d e f g h")
+# === Figuren zeichnen ===
+def zeichne_figuren(screen, board):
+    for r in range(8):
+        for c in range(8):
+            square = chess.square(c, 7 - r)
+            piece = board.piece_at(square)
+            if piece:
+                bild = IMAGES[('w' if piece.color == chess.WHITE else 'b') + piece.symbol().upper()]
+                screen.blit(bild, pygame.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
+# === Mausposition zu Brettkoordinate ===
+def get_square_from_mouse(pos):
+    x, y = pos
+    col = x // SQ_SIZE
+    row = 7 - (y // SQ_SIZE)
+    return chess.square(col, row)
 
-def spiel_starten():
+# === Hauptfunktion ===
+def main():
+    lade_figuren()
     board = chess.Board()
-    print("Willkommen zu Schach! Du spielst Weiß.")
-    brett_anzeigen(board)
+    selected_square = None
+    running = True
 
-    while not board.is_game_over():
-        if board.turn == chess.WHITE:
-            print("\nDein Zug (z. B. e2e4): ")
-            eingabe = input("> ")
-            try:
-                move = chess.Move.from_uci(eingabe)
-                if move in board.legal_moves:
-                    board.push(move)
-                    brett_anzeigen(board)
+    while running:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and board.turn == chess.WHITE:
+                square = get_square_from_mouse(pygame.mouse.get_pos())
+                if selected_square is None:
+                    piece = board.piece_at(square)
+                    if piece and piece.color == chess.WHITE:
+                        selected_square = square
                 else:
-                    print("⚠️ Ungültiger Zug.")
-            except:
-                print("❌ Eingabefehler – Format: e2e4")
-        else:
-            print("\n🤖 KI denkt...")
+                    move = chess.Move(selected_square, square)
+                    if move in board.legal_moves:
+                        board.push(move)
+                        selected_square = None
+                    else:
+                        selected_square = None
+
+        if board.turn == chess.BLACK and not board.is_game_over():
             _, move = minimax(board, 2, float('-inf'), float('inf'), True)
             if move:
-                print(f"🤖 KI spielt: {move.uci()}")
                 board.push(move)
-                brett_anzeigen(board)
 
-    print("\n🎯 Spiel beendet!")
-    print("Ergebnis:", board.result())
+        zeichne_brett(screen)
+        zeichne_figuren(screen, board)
+        pygame.display.flip()
+
+    pygame.quit()
 
 if __name__ == "__main__":
-    spiel_starten()
-# Hier wird das Schachspiel gestartet
-# und die Hauptspiellogik ausgeführt.
+    main()
